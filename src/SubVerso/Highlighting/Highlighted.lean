@@ -848,7 +848,7 @@ private def minIndentString (str : String) : Nat :=
 /--
 Returns the minimal indentation of any non-whitespace line of code.
 -/
-def indentation (hl : Highlighted) : Nat := Id.run do
+def indentation (hl : Highlighted) : Nat :=
   minIndentString hl.toString
 
 /--

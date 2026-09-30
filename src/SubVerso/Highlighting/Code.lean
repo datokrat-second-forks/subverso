@@ -19,7 +19,7 @@ open Lean hiding perhaps (HashMap)
 open Elab
 open Lean.Widget (TaggedText)
 open Lean.Widget
-open Lean.PrettyPrinter (InfoPerPos)
+open SubVerso.Compat (InfoPerPos)
 open SubVerso.Compat (HashMap HashSet)
 
 
@@ -214,7 +214,7 @@ def ppCodeWithInfos (e : Expr) : MetaM CodeWithInfos:= do
   tryCatch (ppExprTagged e) fun _ => do
       try
         let e ← Meta.ppExpr e
-        pure <| .append <| e.prettyM (m := PrettyM) Std.Format.defWidth |>.run {} |>.2.out
+        pure <| .append <| e.prettyM (m := PrettyM) Std.Format.defWidth |>.run {} |>.run |>.2.out
       catch
       | _ => pure <| .text e.dbgToString
 
@@ -299,12 +299,12 @@ where
     ref.ident :: ref.aliases.toList
 
 def build (refs : Server.ModuleRefs) : HashMap Lsp.RefIdent Lsp.RefIdent := Id.run do
-  let st := go refs.toList |>.run .init |>.snd
+  let st := go refs.toList |>.run .init |>.run |>.snd
   let mut ids : HashMap _ _ := {}
   for (x, _) in st.indices.toList do
-    let ((_, y, _), _) := StateT.run (m := Id) (UnionFind.find x) st
+    let ((_, y, _), _) := (StateT.run (m := Id) (UnionFind.find x) st).run
     ids := ids.insert x y
-  ids
+  return ids
 where
   go : List (Lsp.RefIdent × Server.RefInfo) → StateT (UnionFind.State Lsp.RefIdent) Id Unit
     | [] => pure ()
@@ -574,7 +574,7 @@ def bundleMessages (msgs : Array Message) : Array MessageBundle := Id.run do
         out := out.push b
         curr := some ⟨#[m], Nat.zero_lt_succ 0⟩
   if let some b := curr then out := out.push b
-  out
+  return out
 where
 
 
@@ -690,7 +690,7 @@ def HighlightM.openTactic (info : Array (Highlighted.Goal Highlighted)) (startPo
   modify fun st => st.openTactic info startPos endPos
 
 instance : Inhabited (HighlightM α) where
-  default := fun _ _ _ => default
+  default := throw default
 
 def nextMessage? : HighlightM (Option MessageBundle) := do
   let st ← get
@@ -1310,8 +1310,8 @@ partial def subsyntaxes (stx : Syntax) : Array Syntax := Id.run do
     let mut stxs := children
     for s in children.map subsyntaxes do
       stxs := stxs ++ s
-    stxs
-  | _ => #[]
+    return stxs
+  | _ => return #[]
 
 def hasTactics (stx : Syntax) : HighlightM Bool := do
   let rng? := stx.getRange?
@@ -1451,7 +1451,7 @@ def resolveFormatAnnotations
   -- `codepointPosToUtf16PosFrom` to loop when the FileMap's string is shorter. These synthetic
   -- positions are often very large numbers (91620430928 was observed in practice), and
   -- `codepointPosToUtf16PosFromAux` loops that many times.
-  withReader (·.noDefinitions) <| cleanFormatTags infos ci fmt #[]
+  withReader (·.noDefinitions) <| (cleanFormatTags infos ci fmt).run #[]
 
 /-- Simplifies a complete `FormatWithInfos` into a format data JSON string. -/
 private def resolveFormatWithInfos (prettySig : Option (FormatWithInfos × ContextInfo)) : HighlightM (Option String) := do
@@ -1525,7 +1525,7 @@ def highlightGoals (ci : ContextInfo) (goals : List MVarId) :
     let some mvDecl := ci.mctx.findDecl? g
       | continue
     let name := if mvDecl.userName.isAnonymous then none else some mvDecl.userName.eraseMacroScopes.toString
-    let lctx := mvDecl.lctx |>.sanitizeNames.run' {options := (← getOptions)}
+    let lctx := mvDecl.lctx |>.sanitizeNames.run' {options := (← getOptions)} |>.run
 
     -- Tell the delaborator to tag functions that are being applied. Otherwise,
     -- functions have no tooltips or binding info in tactics.

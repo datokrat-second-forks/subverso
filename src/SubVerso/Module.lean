@@ -71,7 +71,7 @@ structure Module where
 deriving Inhabited
 
 def Module.toJson (mod : Module) : Json :=
-  let (items, state) := mod.items.mapM itemJson |>.run {}
+  let (items, state) := mod.items.mapM itemJson |>.run {} |>.run
   Json.mkObj [
     ("data", state.toExport.toJson),
     ("items", .arr items)

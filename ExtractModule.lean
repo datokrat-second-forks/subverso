@@ -105,11 +105,12 @@ unsafe def go (asServer : Bool) (suppressedNamespaces : Array Name) (mod : Strin
     let cmdPos := parserState.pos
     let cmdSt ← IO.mkRef { commandState, parserState, cmdPos }
 
-    let res ← Compat.Frontend.processCommands headerStx pctx cmdSt
+    -- `FrontendM` is `ReaderT Context (StateRefT State IO)`; pass the existing state reference.
+    let res ← ReaderT.run (ReaderT.run (Compat.Frontend.processCommands headerStx) pctx) cmdSt
 
     let res := res.updateLeading contents
 
-    let hls ← (Frontend.runCommandElabM <| liftTermElabM <| Highlighting.highlightFrontendResult res (suppressNamespaces := suppressedNamespaces.toList)) pctx cmdSt
+    let hls ← ReaderT.run (ReaderT.run (Frontend.runCommandElabM <| liftTermElabM <| Highlighting.highlightFrontendResult res (suppressNamespaces := suppressedNamespaces.toList)) pctx) cmdSt
 
     let items : Array ModuleItem := hls.zip res.syntax |>.map fun (hl, stx) => {
       defines := hl.definedNames.toArray,

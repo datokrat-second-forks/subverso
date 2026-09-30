@@ -238,5 +238,5 @@ def ExportCode.toHighlighted (data : ExportCode) : Except String Highlighting.Hi
   data.toExport.toHighlighted data.top
 
 def Highlighted.exportCode (hl : Highlighting.Highlighted) : ExportCode :=
-  let (top, state) := hl.export.run {}
+  let (top, state) := Id.run <| hl.export.run {}
   {state with top}

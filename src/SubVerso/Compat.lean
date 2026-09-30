@@ -645,13 +645,25 @@ def union (xs ys : NameSet) : NameSet :=
   ]
 end NameSet
 
+/--
+The `Elab.Info` annotations of pretty-printer output, keyed by subexpression position. Newer Lean
+versions replaced `Lean.PrettyPrinter.InfoPerPos` by `SubExpr.PosMap Elab.Info`, whose keys are
+`SubExpr.Pos` instead of `Nat`.
+-/
+abbrev InfoPerPos : Type :=
+  %first_succeeding [
+    Lean.PrettyPrinter.InfoPerPos,
+    Lean.SubExpr.PosMap Lean.Elab.Info
+  ]
+
 namespace InfoPerPos
 open Lean PrettyPrinter
 
 def get? (xs : InfoPerPos) (x : Nat) : Option Elab.Info :=
   %first_succeeding [
     xs[x]?,
-    xs.find? x
+    xs.find? x,
+    xs[(⟨x⟩ : SubExpr.Pos)]?
   ]
 
 open Lean PrettyPrinter in
@@ -659,7 +671,8 @@ instance : GetElem InfoPerPos Nat Elab.Info (fun xs x => get? xs x |>.isSome) wh
   getElem xs i _ok :=
     %first_succeeding [
       xs.get! i,
-      xs.find? i |>.get!
+      xs.find? i |>.get!,
+      get? xs i |>.get!
     ]
 
 end InfoPerPos
@@ -668,7 +681,9 @@ namespace NameMap
 def mergeBy (f : Name → α → α → α) (xs ys : NameMap α) : NameMap α :=
   %first_succeeding [
     Std.TreeMap.mergeWith f xs ys,
-    Lean.RBMap.mergeBy f xs ys
+    Lean.RBMap.mergeBy f xs ys,
+    -- `NameMap` as a structure wrapping a `Std.TreeMap`
+    ⟨Std.TreeMap.mergeWith f xs.toTreeMap ys.toTreeMap⟩
   ]
 def get? (xs : NameMap α) (x : Name) : Option α :=
   %first_succeeding [

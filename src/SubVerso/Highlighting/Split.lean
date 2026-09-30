@@ -148,7 +148,7 @@ def Highlighted.substM [Monad m] (values : String → m (Option α)) (hl : Highl
   return out
 
 def Highlighted.subst (values : String → Option α) (hl : Highlighted) : Array (Highlighted ⊕ α) :=
-  hl.substM (m := Id) values
+  Id.run <| hl.substM (m := Id) (pure <| values ·)
 
 def Highlighted.lines (hl : Highlighted) : Array Highlighted := Id.run do
   let mut todo := [some hl]
