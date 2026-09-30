@@ -184,7 +184,9 @@ else
     let ws ← getWorkspace
 
     let exeJob ← «subverso-extract-mod».fetch
-    let modJob ← mod.olean.fetch
+    -- The extractor elaborates the module from source, so it needs the module's dependencies but
+    -- not the module itself. Not building the module allows highlighting modules with errors.
+    let depsJob ← mod.deps.fetch
     let suppNS := (← IO.getEnv "SUBVERSO_SUPPRESS_NAMESPACES").getD ""
 
     let buildDir := ws.root.buildDir
@@ -192,18 +194,16 @@ else
     let nsFile := buildDir / "highlighted" / s!"ns-{hash suppNS}"
 
     exeJob.bindM fun exeFile =>
-      modJob.mapM fun oleanFile => do
+      depsJob.mapM fun _ => do
         addPureTrace suppNS
         buildFileUnlessUpToDate' (text := true) nsFile do
           IO.FS.createDirAll (buildDir / "highlighted")
           IO.FS.writeFile nsFile suppNS
 
-        -- Rebuild when the SubVerso executable, the module's source, or the compiled module
-        -- changes. Changes to the source code that don't change the olean must also be reflected
-        -- in semantically-highlighted source, so the Lean file is important here.
+        -- Rebuild when the SubVerso executable, the module's source, or its dependencies change.
+        -- The dependencies' trace is included in that of `depsJob`.
         addTrace (← computeTrace exeFile)
         addTrace (← computeTrace (TextFilePath.mk mod.leanFile))
-        addTrace (← computeTrace oleanFile)
         addTrace (← computeTrace (TextFilePath.mk nsFile))
 
         buildFileUnlessUpToDate' (text := true) hlFile <|
